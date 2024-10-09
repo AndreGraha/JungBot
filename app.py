@@ -8,6 +8,8 @@ import streamlit as st
 import pickle
 import hashlib
 import os
+from dotenv import load_dotenv
+load_dotenv() 
 
 # Helper function to generate a hash for caching purposes
 def get_hash(file_path):
@@ -53,15 +55,16 @@ def create_faiss_index(embeddings):
     return index
 
 # Step 5: Query Processing
-def find_similar_chunks(query, index, chunks, top_k=10):
+def find_similar_chunks(query, index, chunks, top_k=45):
     query_embedding = model.encode([query], convert_to_tensor=False)
     distances, indices = index.search(query_embedding, top_k)
     return [chunks[i] for i in indices[0]]
 
 # Step 6: Use GPT-4 (or ChatGPT) to generate a response with streaming
+
 def generate_response(retrieved_chunks, user_query):
-    context = "\n".join(retrieved_chunks)
-    prompt = f"Carl Jung assistant, based on the following context:\n{context}\nYou answer the question by including quotes from the text provided, along with proper citations. The page number and the name of Jung's work it has come from is included in the chunk of text provided to you. Answer the user's question: {user_query}"
+    context = "".join(retrieved_chunks)
+    prompt = f"Carl Jung assistant. You answer questions using citations from the information provided in the context. In the context provided to you, there will be the page number and name of the work, include both in your citaion. You are a Jungain expeort. based on the following context:{context}Answer the user's question: {user_query}"
     client = openai.OpenAI()
     client.api_key = os.getenv("OPENAI_API_KEY")
     stream = client.chat.completions.create(
@@ -76,7 +79,25 @@ def generate_response(retrieved_chunks, user_query):
     return response.strip()
 
 # Main flow with Streamlit
+def password_authentication():
+    if 'authenticated' not in st.session_state:
+        st.session_state['authenticated'] = False
+
+    if not st.session_state['authenticated']:
+        password = st.text_input("Enter the password to access the chatbot:", type="password")
+        if password == os.getenv("PASSWORD"):
+            st.session_state['authenticated'] = True
+            st.success("Password correct! You can now use the chatbot.")
+            return True  # Rerun the app to show the chatbot interface
+        elif password:
+            st.error("Incorrect password. Please try again.")
+        return False
+    return True
+
 def main():
+    if not password_authentication():
+        return
+
     st.title("Carl Jung Chatbot - RAG Model")
     st.markdown("This chatbot allows you to ask questions about Carl Jung's works based on his collected writings.")
 
